@@ -7,20 +7,11 @@ export function getRequestOrigin(request: NextRequest) {
   return `${proto}://${host}`
 }
 
-export function getConfiguredAppUrl() {
-  const value = process.env.APP_URL?.trim().replace(/\/$/, '')
-  if (!value || value === 'http://localhost:3000') return null
-  return value
-}
-
-export function getOAuthBaseUrl(request: NextRequest) {
-  // Prefer the actual URL the user is visiting. This avoids a common Vercel issue:
-  // state cookie is set on one domain, but GitHub redirects to another APP_URL domain.
-  return getRequestOrigin(request)
-}
-
-export function getPostLoginRedirectUrl(request: NextRequest) {
-  return getConfiguredAppUrl() || getRequestOrigin(request)
+export function getAppUrl(request?: NextRequest) {
+  const fromEnv = process.env.APP_URL?.trim().replace(/\/$/, '')
+  if (fromEnv) return fromEnv
+  if (request) return getRequestOrigin(request)
+  return 'http://localhost:3000'
 }
 
 export function requiredEnv(name: string) {

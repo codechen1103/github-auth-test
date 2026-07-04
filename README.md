@@ -117,7 +117,12 @@ Production
 
 ## 常见错误：Invalid OAuth state or missing code
 
-这个错误通常不是 GitHub secret 错，而是回调时读不到 OAuth `state` cookie。最常见原因是：
+这个错误通常不是 GitHub secret 错，而是域名不一致。常见有两种表现：
+
+1. GitHub 页面显示 `The redirect_uri is not associated with this application.`
+2. 回到应用后显示 `oauth_state_invalid` 或 `missing_state_cookie_domain_or_cookie_blocked`
+
+最常见原因是：
 
 ```txt
 用户点击登录的域名      https://xxx-git-main-user.vercel.app
@@ -138,6 +143,18 @@ https://your-generator.vercel.app/api/auth/github/callback
 3. Vercel `APP_URL` 也填同一个域名；
 4. 不要在 Preview Deployment 域名上测试同一个 OAuth App，除非你也给该域名单独建 OAuth App；
 5. 修改 Vercel 环境变量后要 Redeploy。
+
+
+
+代码现在会固定使用 `APP_URL` 作为 OAuth `redirect_uri`。如果你从 Vercel preview 域名点击登录，会先跳转到 `APP_URL` 再开始 OAuth。
+
+所以这三处必须完全一致：
+
+```txt
+用户访问的生产域名
+Vercel APP_URL
+GitHub OAuth App Authorization callback URL 的域名
+```
 
 ## 权限说明
 
