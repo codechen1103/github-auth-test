@@ -1,0 +1,164 @@
+# github-auth-test
+
+一个可部署到 Vercel 的公共配置 Web MVP：用户打开页面、填写笔记模板配置、授权 GitHub，然后把客制化后的文件推送到用户自己的 GitHub 仓库，最后得到一个 Vercel 部署链接。
+
+## 这套方案里谁配置 OAuth App？
+
+- 你部署的官方生成器：由你配置 GitHub OAuth App，并把 `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` 放在你的 Vercel 项目环境变量里。
+- 普通使用者：不需要配置 OAuth App，只需要在 GitHub 授权你的 App。
+- 自部署者：如果别人 fork 后部署自己的生成器，他们需要创建自己的 GitHub OAuth App。
+
+## 本地开发
+
+```bash
+cd github-auth-test
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+本地 GitHub OAuth App 配置：
+
+```txt
+Homepage URL: http://localhost:3000
+Authorization callback URL: http://localhost:3000/api/auth/github/callback
+```
+
+`.env.local`：
+
+```env
+APP_URL=http://localhost:3000
+GITHUB_CLIENT_ID=你的本地 OAuth App Client ID
+GITHUB_CLIENT_SECRET=你的本地 OAuth App Client Secret
+GITHUB_SCOPES=read:user user:email public_repo
+SESSION_SECRET=用 openssl rand -base64 32 生成
+CLEAR_TOKEN_AFTER_GENERATE=false
+```
+
+## 部署到 Vercel
+
+### 1. 先部署项目
+
+把这个目录推到 GitHub，然后在 Vercel 里导入项目。
+
+首次部署如果还没有环境变量，可能会失败，没关系，配置环境变量后 Redeploy。
+
+### 2. 创建 GitHub OAuth App
+
+打开：
+
+<https://github.com/settings/developers>
+
+选择：
+
+```txt
+OAuth Apps -> New OAuth App
+```
+
+假设你的 Vercel 域名是：
+
+```txt
+https://your-generator.vercel.app
+```
+
+填写：
+
+```txt
+Application name: Your Notes Generator
+Homepage URL: https://your-generator.vercel.app
+Authorization callback URL: https://your-generator.vercel.app/api/auth/github/callback
+```
+
+创建后复制：
+
+```txt
+Client ID
+Client Secret
+```
+
+建议：不要启用 Device Flow。
+
+### 3. 在 Vercel 配置环境变量
+
+进入你的 Vercel Project：
+
+```txt
+Settings -> Environment Variables
+```
+
+添加这些变量：
+
+```env
+APP_URL=https://your-generator.vercel.app
+GITHUB_CLIENT_ID=你的 GitHub OAuth App Client ID
+GITHUB_CLIENT_SECRET=你的 GitHub OAuth App Client Secret
+GITHUB_SCOPES=read:user user:email public_repo
+SESSION_SECRET=一个长随机字符串
+CLEAR_TOKEN_AFTER_GENERATE=false
+```
+
+`SESSION_SECRET` 可在本地生成：
+
+```bash
+openssl rand -base64 32
+```
+
+作用环境建议至少选择：
+
+```txt
+Production
+```
+
+如果你也要在 Preview 部署里测试 OAuth，则 Preview 也要加。但 GitHub OAuth App 的 callback URL 必须匹配 Preview 域名；OAuth App 只有一个 callback URL 时，Preview 会比较麻烦。建议先只测 Production。
+
+配置后点击 Redeploy，让新环境变量生效。
+
+## 权限说明
+
+默认：
+
+```env
+GITHUB_SCOPES=read:user user:email public_repo
+```
+
+这允许：
+
+- 读取 GitHub 用户基础信息；
+- 读取邮箱；
+- 创建/写入公开仓库。
+
+如果要支持私有仓库，需要：
+
+```env
+GITHUB_SCOPES=read:user user:email repo
+```
+
+但 `repo` 权限很大，用户授权时会更敏感。MVP 建议先只支持 public repo。
+
+## 安全注意
+
+- 不要把 `.env.local` 提交到 Git。
+- 不要使用 `NEXT_PUBLIC_GITHUB_CLIENT_SECRET`。
+- `GITHUB_CLIENT_SECRET` 只在服务端 Route Handler 里读取。
+- 关闭 GitHub OAuth App 的 Device Flow。
+- 不要把 GitHub access token 返回给前端。
+- `CLEAR_TOKEN_AFTER_GENERATE=true` 可以在生成仓库后清除登录 cookie，更适合一次性生成器。
+
+## 主要路由
+
+```txt
+/                                      配置页面
+/api/auth/github                       开始 GitHub OAuth
+/api/auth/github/callback              GitHub OAuth 回调
+/api/me                                当前登录用户
+/api/generate                          创建仓库并写入模板文件
+/api/auth/logout                       退出
+```
+
+## 参考文档
+
+- GitHub OAuth Apps: https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app
+- GitHub OAuth Web flow: https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps
+- GitHub Create repository API: https://docs.github.com/en/rest/repos/repos#create-a-repository-for-the-authenticated-user
+- Vercel Environment Variables: https://vercel.com/docs/environment-variables
+- Next.js Environment Variables: https://nextjs.org/docs/app/guides/environment-variables
