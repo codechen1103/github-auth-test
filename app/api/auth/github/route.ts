@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getBaseUrl, githubScopes, requiredEnv } from '@/lib/env'
+import { getOAuthBaseUrl, githubScopes, requiredEnv } from '@/lib/env'
 import { randomState, setOAuthState } from '@/lib/session'
 
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   const clientId = requiredEnv('GITHUB_CLIENT_ID')
-  const baseUrl = getBaseUrl(request)
+  const baseUrl = getOAuthBaseUrl(request)
   const redirectUri = `${baseUrl}/api/auth/github/callback`
   const state = randomState()
 

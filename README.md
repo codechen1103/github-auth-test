@@ -113,6 +113,32 @@ Production
 
 配置后点击 Redeploy，让新环境变量生效。
 
+
+
+## 常见错误：Invalid OAuth state or missing code
+
+这个错误通常不是 GitHub secret 错，而是回调时读不到 OAuth `state` cookie。最常见原因是：
+
+```txt
+用户点击登录的域名      https://xxx-git-main-user.vercel.app
+APP_URL / callback 域名 https://xxx.vercel.app
+```
+
+cookie 是按域名保存的。如果开始登录和回调不是同一个域名，callback 就读不到登录前写入的 state cookie。
+
+建议：
+
+1. 生产环境固定使用一个域名，例如 `https://your-generator.vercel.app` 或你的自定义域名；
+2. GitHub OAuth App 的 callback URL 填这个固定域名：
+
+```txt
+https://your-generator.vercel.app/api/auth/github/callback
+```
+
+3. Vercel `APP_URL` 也填同一个域名；
+4. 不要在 Preview Deployment 域名上测试同一个 OAuth App，除非你也给该域名单独建 OAuth App；
+5. 修改 Vercel 环境变量后要 Redeploy。
+
 ## 权限说明
 
 默认：
