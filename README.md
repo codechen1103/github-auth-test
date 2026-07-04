@@ -115,6 +115,39 @@ Production
 
 
 
+
+
+## 常见错误：授权后 Vercel 显示无法处理此请求 / 500
+
+如果 GitHub 授权页面已经出现，点击授权后 Vercel 显示：
+
+```txt
+该网页无法正常运作
+... 目前无法处理此请求
+```
+
+通常是 callback 服务端报错。优先检查 Vercel 环境变量：
+
+```env
+GITHUB_CLIENT_SECRET=必须是 GitHub OAuth App 的真实 Client Secret
+SESSION_SECRET=必须是长随机字符串，不能是 replace_with_a_long_random_secret
+APP_URL=https://你的正式域名.vercel.app
+```
+
+尤其是 `SESSION_SECRET` 很容易漏填。可以本地生成：
+
+```bash
+openssl rand -base64 32
+```
+
+改完 Vercel 环境变量后必须 Redeploy。也可以到：
+
+```txt
+Vercel Project -> Deployments -> 当前部署 -> Functions / Runtime Logs
+```
+
+查看具体错误。
+
 ## 常见错误：Invalid OAuth state or missing code
 
 这个错误通常不是 GitHub secret 错，而是域名不一致。常见有两种表现：

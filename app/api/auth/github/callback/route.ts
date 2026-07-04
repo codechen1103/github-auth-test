@@ -14,50 +14,61 @@ export async function GET(request: NextRequest) {
   const error = url.searchParams.get('error')
   const expectedState = request.cookies.get(STATE_COOKIE)?.value
 
-  if (requestOrigin !== appUrl) {
+  try {
+    if (requestOrigin !== appUrl) {
+      const target = new URL(appUrl)
+      target.searchParams.set('error', 'callback_origin_mismatch')
+      target.searchParams.set('callback_origin', requestOrigin)
+      return NextResponse.redirect(target)
+    }
+
+    if (error) {
+      const target = new URL(appUrl)
+      target.searchParams.set('error', error)
+      return NextResponse.redirect(target)
+    }
+
+    if (!code || !state || !expectedState || state !== expectedState) {
+      const reason = !code
+        ? 'missing_code'
+        : !state
+          ? 'missing_state'
+          : !expectedState
+            ? 'missing_state_cookie_domain_or_cookie_blocked'
+            : 'state_mismatch'
+
+      const target = new URL(appUrl)
+      target.searchParams.set('error', 'oauth_state_invalid')
+      target.searchParams.set('reason', reason)
+      target.searchParams.set('callback_origin', requestOrigin)
+      return NextResponse.redirect(target)
+    }
+
+    const redirectUri = `${appUrl}/api/auth/github/callback`
+    const { accessToken, scopes } = await exchangeCodeForToken({
+      clientId: requiredEnv('GITHUB_CLIENT_ID'),
+      clientSecret: requiredEnv('GITHUB_CLIENT_SECRET'),
+      code,
+      redirectUri
+    })
+
+    const user = await getCurrentUser(accessToken, scopes)
+
+    const response = NextResponse.redirect(appUrl)
+    clearOAuthState(response)
+    setSession(response, {
+      accessToken,
+      scopes,
+      user,
+      createdAt: Date.now()
+    })
+    return response
+  }
+  catch (err) {
+    console.error('GitHub OAuth callback failed:', err)
     const target = new URL(appUrl)
-    target.searchParams.set('error', 'callback_origin_mismatch')
-    target.searchParams.set('callback_origin', requestOrigin)
+    target.searchParams.set('error', 'oauth_callback_failed')
+    target.searchParams.set('message', err instanceof Error ? err.message : String(err))
     return NextResponse.redirect(target)
   }
-
-  if (error) {
-    return NextResponse.redirect(`${appUrl}/?error=${encodeURIComponent(error)}`)
-  }
-
-  if (!code || !state || !expectedState || state !== expectedState) {
-    const reason = !code
-      ? 'missing_code'
-      : !state
-        ? 'missing_state'
-        : !expectedState
-          ? 'missing_state_cookie_domain_or_cookie_blocked'
-          : 'state_mismatch'
-
-    const target = new URL(appUrl)
-    target.searchParams.set('error', 'oauth_state_invalid')
-    target.searchParams.set('reason', reason)
-    target.searchParams.set('callback_origin', requestOrigin)
-    return NextResponse.redirect(target)
-  }
-
-  const redirectUri = `${appUrl}/api/auth/github/callback`
-  const { accessToken, scopes } = await exchangeCodeForToken({
-    clientId: requiredEnv('GITHUB_CLIENT_ID'),
-    clientSecret: requiredEnv('GITHUB_CLIENT_SECRET'),
-    code,
-    redirectUri
-  })
-
-  const user = await getCurrentUser(accessToken, scopes)
-
-  const response = NextResponse.redirect(appUrl)
-  clearOAuthState(response)
-  setSession(response, {
-    accessToken,
-    scopes,
-    user,
-    createdAt: Date.now()
-  })
-  return response
 }

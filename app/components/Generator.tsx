@@ -37,6 +37,20 @@ export default function Generator() {
   const [isPrivate, setIsPrivate] = useState(false)
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const urlError = params.get('error')
+    const reason = params.get('reason')
+    const message = params.get('message')
+    const callbackOrigin = params.get('callback_origin')
+    if (urlError) {
+      setError([
+        `OAuth error: ${urlError}`,
+        reason ? `reason: ${reason}` : '',
+        message ? `message: ${message}` : '',
+        callbackOrigin ? `callback_origin: ${callbackOrigin}` : ''
+      ].filter(Boolean).join(' | '))
+    }
+
     fetch('/api/me')
       .then(async (res) => {
         if (res.status === 401) return null
